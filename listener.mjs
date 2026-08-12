@@ -66,7 +66,11 @@ async function brainBusy() {
 const collect = (updates) =>
   updates
     .filter((u) => u.message && String(u.message.chat?.id) === String(TG_CHAT))
-    .map((u) => ({ text: u.message.text || u.message.caption || '[non-text message]', date: u.message.date }));
+    .map((u) => ({
+      text: u.message.text || u.message.caption || '[non-text message]',
+      date: u.message.date,
+      message_id: u.message.message_id,
+    }));
 
 async function main() {
   if (!TG_TOKEN || !TG_CHAT) { console.log('TG_TOKEN/TG_CHAT secrets missing'); process.exit(1); }
@@ -100,6 +104,12 @@ async function main() {
     let msgs = collect(updates);
     if (!msgs.length) continue;
 
+    // instant acknowledgment: 👍 the message, then show typing
+    await tg('setMessageReaction', {
+      chat_id: TG_CHAT,
+      message_id: msgs[msgs.length - 1].message_id,
+      reaction: [{ type: 'emoji', emoji: '👍' }],
+    });
     await tg('sendChatAction', { chat_id: TG_CHAT, action: 'typing' });
 
     // brief drain so rapid follow-up texts land in the same exchange

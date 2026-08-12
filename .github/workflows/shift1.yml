@@ -18,7 +18,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          N=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?status=in_progress" --jq "[.workflow_runs[] | select(.id != ${GITHUB_RUN_ID})] | length")
+          N=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?status=in_progress" --jq "[.workflow_runs[] | select(.id != ${GITHUB_RUN_ID}) | select(.name | startswith(\"watch\"))] | length")
           echo "others=$N" >> "$GITHUB_OUTPUT"
           echo "Other running watcher jobs: $N"
       - name: Run watcher until 12:30 CT

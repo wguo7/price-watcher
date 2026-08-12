@@ -1,0 +1,39 @@
+name: chat-listener
+# Long-polls Telegram for William's messages around the clock (free on this
+# public repo) and hands them to the stock-chat workflow in wguo7/stock-agents,
+# where Claude answers. Self-restarts every ~5h; the crons below are backup
+# slots that self-heal the chain if it ever breaks (dedup: an overlapping run
+# sees Telegram HTTP 409 and exits). Requires secrets: TG_TOKEN, TG_CHAT,
+# XREPO_PAT (PAT with access to wguo7/stock-agents Actions).
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '19 0,6,12,18 * * *'   # backup self-heal slots (main branch only)
+concurrency:
+  group: chat-listener
+  cancel-in-progress: false
+permissions:
+  actions: write
+  contents: read
+jobs:
+  listen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Listen for Telegram messages
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT: ${{ secrets.TG_CHAT }}
+          XREPO_PAT: ${{ secrets.XREPO_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REF_NAME: ${{ github.ref_name }}
+        run: node listener.mjs
+      - name: Alert and auto-restart on failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendMessage" -d chat_id=${{ secrets.TG_CHAT }} --data-urlencode "text=⚠️ Chat listener crashed — auto-restarting. If I go quiet, dispatch chat-listener in price-watcher Actions. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
+          sleep 120
+          curl -s -X POST -H "Authorization: Bearer ${{ github.token }}" -H "Accept: application/vnd.github+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/chat-listener.yml/dispatches" \
+            -d "{\"ref\":\"${{ github.ref_name }}\"}" || true

@@ -63,6 +63,28 @@ async function brainBusy() {
   return false;
 }
 
+// If the brain's last run failed (usage limit hit — queued in chat/pending.json
+// on its side), re-dispatch it every ~15 min until a run succeeds. A retry run
+// with nothing queued is a no-op success, so this always converges.
+let lastRetryAt = 0;
+async function maybeRetryPending() {
+  if (Date.now() - lastRetryAt < 15 * 60 * 1000) return;
+  try {
+    const r = await fetch(
+      `${API}/repos/${BRAIN_REPO}/actions/workflows/chat.yml/runs?status=completed&per_page=1`,
+      { headers: { authorization: `Bearer ${PAT}` }, signal: AbortSignal.timeout(20000) },
+    );
+    if (!r.ok) return;
+    const runs = (await r.json()).workflow_runs || [];
+    if (!runs.length || runs[0].conclusion !== 'failure') return;
+    if (await brainBusy()) return;
+    lastRetryAt = Date.now();
+    if (await dispatch(BRAIN_REPO, 'chat.yml', CHAT_REF, null, PAT)) {
+      console.log('brain last run failed — dispatched a retry');
+    }
+  } catch { /* transient — try again next cycle */ }
+}
+
 const collect = (updates) =>
   updates
     .filter((u) => u.message && String(u.message.chat?.id) === String(TG_CHAT))
@@ -84,6 +106,7 @@ async function main() {
   const end = Date.now() + SHIFT_MS;
 
   while (Date.now() < end) {
+    await maybeRetryPending();
     const r = await tg('getUpdates', { offset, timeout: 50 });
     if (r.status === 409) {
       // another getUpdates consumer is active (overlapping listener run)

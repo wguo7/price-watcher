@@ -9,6 +9,12 @@ const TG_TOKEN = process.env.TG_TOKEN;
 const TG_CHAT = process.env.TG_CHAT;
 const END_CT = process.env.END_CT || "15:05"; // Chicago HH:MM to stop at
 const SWEEP_SECS = 60;
+// When set, every alert is also handed to the chat brain (stock-agents), which
+// texts William a compiled BUY/PASS/WATCH verdict a minute later.
+const PAT = process.env.XREPO_PAT;
+const CHAT_REF = process.env.CHAT_REF || "main";
+const BRAIN_REPO = "wguo7/stock-agents";
+const GH_API = "https://api.github.com";
 
 if (!TG_TOKEN || !TG_CHAT) {
   console.error("Missing TG_TOKEN / TG_CHAT");
@@ -61,7 +67,47 @@ async function alert(key, text) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: TG_CHAT, text }),
     });
-  } catch (e) { console.error("telegram send failed:", e.message); fired.delete(key); }
+  } catch (e) { console.error("telegram send failed:", e.message); fired.delete(key); return; }
+  queueAnalysis(`${text.split("\n")[0]}`);
+}
+
+// ---- auto-analysis: hand fired alerts to the chat brain for a clear verdict ----
+let analysisQueue = [];
+let lastAnalysisAt = 0;
+function queueAnalysis(line) { if (PAT) analysisQueue.push(line); }
+
+async function brainBusy() {
+  for (const status of ["in_progress", "queued"]) {
+    try {
+      const r = await fetch(
+        `${GH_API}/repos/${BRAIN_REPO}/actions/workflows/chat.yml/runs?status=${status}&per_page=1`,
+        { headers: { authorization: `Bearer ${PAT}` }, signal: AbortSignal.timeout(15000) },
+      );
+      if (r.ok && (await r.json()).total_count > 0) return true;
+    } catch { return true; /* can't tell — don't risk clobbering a queued user message */ }
+  }
+  return false;
+}
+
+async function flushAnalysis() {
+  if (!PAT || !analysisQueue.length) return;
+  if (Date.now() - lastAnalysisAt < 5 * 60 * 1000) return; // at most one hand-off per 5 min
+  if (await brainBusy()) return; // never displace a queued user-message run
+  const lines = analysisQueue.join("\n");
+  const msg = [{
+    text: `🤖 WATCHER (automated): these alert(s) just fired — send William a compiled verdict, not homework:\n${lines}`,
+    date: Math.floor(Date.now() / 1000),
+  }];
+  try {
+    const r = await fetch(`${GH_API}/repos/${BRAIN_REPO}/actions/workflows/chat.yml/dispatches`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${PAT}`, accept: "application/vnd.github+json" },
+      body: JSON.stringify({ ref: CHAT_REF, inputs: { updates: JSON.stringify(msg) } }),
+      signal: AbortSignal.timeout(20000),
+    });
+    console.log(`analysis hand-off: HTTP ${r.status} (${analysisQueue.length} alert(s))`);
+    if (r.status === 204) { analysisQueue = []; lastAnalysisAt = Date.now(); }
+  } catch (e) { console.log("analysis hand-off failed:", e.message); }
 }
 
 const fmt = (n) => n.toFixed(2);
@@ -89,10 +135,11 @@ while (chicagoNow() < END_CT) {
       const q = await quote(t);
       if (!q) continue;
       if (q.dayPct <= -cfg.watchlistDropPct)
-        await alert(`${t}-dip`, `👀 DIP: ${t} ${fmt(q.dayPct)}% today, now $${fmt(q.price)}.\nDo: possible entry — check why it's down before buying. Ask Claude for a read.`);
+        await alert(`${t}-dip`, `👀 DIP: ${t} ${fmt(q.dayPct)}% today, now $${fmt(q.price)}.\nDo: hold on — analyzing now, clear verdict coming in ~2 min.`);
       await sleep(300);
     }
   }
+  await flushAnalysis();
   await sleep(SWEEP_SECS * 1000);
 }
 console.log(`Reached ${END_CT} CT — shift over. Alerts fired: ${fired.size}`);

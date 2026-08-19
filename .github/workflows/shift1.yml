@@ -26,6 +26,7 @@ jobs:
         env:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
+          XREPO_PAT: ${{ secrets.XREPO_PAT }}
           END_CT: "12:30"
         run: node watcher.mjs
       - name: Alert on failure

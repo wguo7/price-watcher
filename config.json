@@ -1,14 +1,60 @@
 {
   "portfolio": {
-    "MSFT":  { "below": 460, "above": 545 },
-    "GOOGL": { "below": 340, "above": 400 },
-    "AMZN":  { "below": 255, "above": 290 },
-    "NVDA":  { "below": 210, "above": 232 },
-    "META":  { "below": 550, "above": 650 },
-    "ORCL":  { "below": 138, "above": 160 }
+    "MSFT": {
+      "below": 460,
+      "above": 520
+    },
+    "GOOGL": {
+      "below": 325,
+      "above": 370
+    },
+    "AMZN": {
+      "below": 250,
+      "above": 285
+    },
+    "NVDA": {
+      "below": 210,
+      "above": 240
+    },
+    "META": {
+      "below": 528,
+      "above": 600
+    },
+    "ORCL": {
+      "below": 132,
+      "above": 158
+    }
   },
   "portfolioDayMovePct": 4,
-  "watchlist": ["AAPL", "TSLA", "AVGO", "AMD", "TSM", "MU", "MRVL", "QCOM", "STX", "SNDK", "PLTR", "CBRS", "SPCX", "BE", "LMT", "BA", "GE", "JPM", "BRK-B", "UNH", "DIS", "HD", "SBUX", "T", "NKE", "DAL", "VTI"],
+  "watchlist": [
+    "AAPL",
+    "TSLA",
+    "AVGO",
+    "AMD",
+    "TSM",
+    "MU",
+    "MRVL",
+    "QCOM",
+    "STX",
+    "SNDK",
+    "PLTR",
+    "CBRS",
+    "SPCX",
+    "BE",
+    "LMT",
+    "BA",
+    "GE",
+    "JPM",
+    "BRK-B",
+    "UNH",
+    "DIS",
+    "HD",
+    "SBUX",
+    "T",
+    "NKE",
+    "DAL",
+    "VTI"
+  ],
   "watchlistDropPct": 5,
   "index": "^GSPC",
   "indexMovePct": 1.5

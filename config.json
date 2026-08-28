@@ -2,19 +2,19 @@
   "portfolio": {
     "MSFT": {
       "below": 470,
-      "above": 525
+      "above": 535
     },
     "GOOGL": {
       "below": 325,
       "above": 365
     },
     "AMZN": {
-      "below": 250,
+      "below": 245,
       "above": 280
     },
     "NVDA": {
       "below": 205,
-      "above": 230
+      "above": 240
     },
     "META": {
       "below": 528,

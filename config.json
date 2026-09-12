@@ -2,7 +2,7 @@
   "portfolio": {
     "MSFT": {
       "below": 426.5,
-      "above": 636.5
+      "above": 597
     },
     "GOOGL": {
       "below": 297,
@@ -10,7 +10,7 @@
     },
     "AMZN": {
       "below": 223,
-      "above": 298.5
+      "above": 327
     },
     "NVDA": {
       "below": 195,
@@ -21,32 +21,21 @@
       "above": 787
     },
     "ORCL": {
-      "below": 135.5,
-      "above": 194.5
+      "below": 133,
+      "above": 189.5
     }
   },
   "portfolioDayMovePct": 4,
   "watchlist": [
     "AAPL",
-    "TSLA",
     "AVGO",
     "AMD",
     "TSM",
-    "MU",
-    "MRVL",
     "QCOM",
-    "STX",
-    "SNDK",
-    "PLTR",
-    "CBRS",
-    "SPCX",
-    "BE",
     "LMT",
     "BA",
-    "GE",
     "JPM",
     "BRK-B",
-    "UNH",
     "DIS",
     "HD",
     "SBUX",

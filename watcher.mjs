@@ -30,6 +30,18 @@ const chicagoNow = () => {
   return `${get("hour")}:${get("minute")}`;
 };
 
+const chicagoDate = (ms = Date.now()) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(new Date(ms)); // YYYY-MM-DD
+
+// A quote is LIVE only once today's regular session has traded. Before the
+// 8:30 CT open (and on holidays/weekends) Yahoo still serves yesterday's close
+// with yesterday's day%, so any alert on it is a stale re-fire: pure noise.
+const isLive = (meta, nowMs = Date.now()) => {
+  const t = meta?.regularMarketTime, start = meta?.currentTradingPeriod?.regular?.start;
+  if (!Number.isFinite(t) || !Number.isFinite(start)) return false;
+  return t >= start && chicagoDate(t * 1000) === chicagoDate(nowMs);
+};
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function quote(t, attempt = 1) {
@@ -52,7 +64,7 @@ async function quote(t, attempt = 1) {
       const last = closes[closes.length - 1];
       prev = Math.abs(last - price) / price < 0.0001 ? closes[closes.length - 2] : last;
     }
-    return { price, dayPct: prev ? ((price - prev) / prev) * 100 : 0 };
+    return { price, dayPct: prev ? ((price - prev) / prev) * 100 : 0, live: isLive(r.meta), tradedAt: r.meta.regularMarketTime };
   } catch { return null; }
 }
 
@@ -114,11 +126,22 @@ const fmt = (n) => n.toFixed(2);
 let sweepN = 0;
 console.log(`Watcher up. Sweep=${SWEEP_SECS}s, ends ${END_CT} CT. Levels:`, JSON.stringify(cfg.portfolio));
 
+let wasLive = null;
 while (chicagoNow() < END_CT) {
   sweepN++;
+  // one probe decides whether today's session has traded yet; until it has,
+  // every quote is yesterday's close and nothing may fire
+  const probe = await quote(Object.keys(cfg.portfolio)[0] || cfg.index);
+  if (probe && !probe.live) {
+    if (wasLive !== false) console.log(`${chicagoNow()} CT: session not open yet (last trade ${new Date(probe.tradedAt * 1000).toISOString()}) - no alerts on stale prints`);
+    wasLive = false;
+    await sleep(SWEEP_SECS * 1000);
+    continue;
+  }
+  if (probe && wasLive !== true) { console.log(`${chicagoNow()} CT: session live - watching`); wasLive = true; }
   for (const [t, lv] of Object.entries(cfg.portfolio)) {
     const q = await quote(t);
-    if (!q) continue;
+    if (!q || !q.live) continue;
     if (lv.below && q.price <= lv.below)
       await alert(`${t}-below`, `🚨 BUY LEVEL HIT: ${t} $${fmt(q.price)} crossed below your $${fmt(lv.below)} level (day ${q.dayPct >= 0 ? "+" : ""}${fmt(q.dayPct)}%).\nDo: if the plan still holds, place your limit buy now. Check news first if the drop is sharp.`);
     if (lv.above && q.price >= lv.above)
@@ -128,12 +151,12 @@ while (chicagoNow() < END_CT) {
     await sleep(150);
   }
   const ix = await quote(cfg.index);
-  if (ix && Math.abs(ix.dayPct) >= cfg.indexMovePct)
+  if (ix && ix.live && Math.abs(ix.dayPct) >= cfg.indexMovePct)
     await alert("index-move", `🚨 MARKET MOVE: S&P 500 ${ix.dayPct >= 0 ? "+" : ""}${fmt(ix.dayPct)}% today (${fmt(ix.price)}).\nDo: nothing rash. If down 5%+ from recent high, remember the rule: pull the next VTI buy forward.`);
   if (sweepN % 5 === 1) {
     for (const t of cfg.watchlist) {
       const q = await quote(t);
-      if (!q) continue;
+      if (!q || !q.live) continue;
       if (q.dayPct <= -cfg.watchlistDropPct)
         await alert(`${t}-dip`, `👀 DIP: ${t} ${fmt(q.dayPct)}% today, now $${fmt(q.price)}.\nDo: hold on — analyzing now, clear verdict coming in ~2 min.`);
       await sleep(300);

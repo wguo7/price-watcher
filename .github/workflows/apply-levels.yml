@@ -1,14 +1,21 @@
 name: apply-levels
-# Applies the morning agent's AI-managed alert levels to config.json.
-# Dispatched cross-repo from wguo7/stock-agents (morning briefing / chat agent)
-# with a `levels` JSON input — replaces the old contents-API write that failed
-# on PAT permissions. Only touches the portfolio {below, above} numbers.
+# Applies the morning agent's AI-managed alert levels — and the un-muted
+# watchlist — to config.json. Dispatched cross-repo from wguo7/stock-agents
+# (morning briefing / chat agent) with a `levels` JSON input and an optional
+# `watchlist` JSON array (portfolio.json watchlist + core ETFs minus the
+# NO-ORDER names, so muted tickers stop firing dip alerts). Replaces the old
+# contents-API write that failed on PAT permissions. Only touches the
+# portfolio {below, above} numbers and the watchlist.
 on:
   workflow_dispatch:
     inputs:
       levels:
         description: 'JSON: {"MSFT":{"below":465,"above":530}, ...}'
         required: true
+      watchlist:
+        description: 'optional JSON array of tickers to watch for dips (muted names already removed); empty = keep current'
+        required: false
+        default: ''
 permissions:
   contents: write
 jobs:
@@ -17,9 +24,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Update portfolio levels in config.json
+      - name: Update portfolio levels and watchlist in config.json
         env:
           LEVELS: ${{ inputs.levels }}
+          WATCHLIST: ${{ inputs.watchlist }}
         run: |
           node -e '
             const fs = require("fs");
@@ -33,6 +41,14 @@ jobs:
               }
             }
             if (!n) { console.error("no valid ticker levels in input"); process.exit(1); }
+            let w = null;
+            try { w = process.env.WATCHLIST ? JSON.parse(process.env.WATCHLIST) : null; }
+            catch { console.error("watchlist input is not JSON — keeping the current watchlist"); }
+            if (Array.isArray(w)) {
+              const clean = [...new Set(w.map((t) => String(t).trim().toUpperCase()).filter((t) => /^[A-Z0-9.^=-]{1,10}$/.test(t)))];
+              if (clean.length) { cfg.watchlist = clean; console.log(`watchlist -> ${clean.length} names: ${clean.join(" ")}`); }
+              else console.error("watchlist input empty after cleaning — keeping the current watchlist");
+            }
             fs.writeFileSync("config.json", JSON.stringify(cfg, null, 2) + "\n");
             console.log(`updated levels for ${n} ticker(s)`);
           '

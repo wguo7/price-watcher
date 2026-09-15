@@ -1,35 +1,38 @@
 {
   "portfolio": {
     "MSFT": {
-      "below": 426.5,
-      "above": 597
+      "below": 445,
+      "above": 647
     },
     "GOOGL": {
-      "below": 297,
-      "above": 426
+      "below": 311.5,
+      "above": 448
     },
     "AMZN": {
       "below": 223,
       "above": 327
     },
     "NVDA": {
-      "below": 195,
-      "above": 258
+      "below": 187.5,
+      "above": 249
     },
     "META": {
-      "below": 571,
-      "above": 787
+      "below": 587,
+      "above": 796
     },
     "ORCL": {
-      "below": 133,
-      "above": 189.5
+      "below": 129,
+      "above": 187.5
+    },
+    "VTI": {
+      "below": 344,
+      "above": 448
     }
   },
   "portfolioDayMovePct": 4,
   "watchlist": [
     "AAPL",
     "AVGO",
-    "AMD",
     "TSM",
     "QCOM",
     "LMT",
@@ -41,8 +44,7 @@
     "SBUX",
     "T",
     "NKE",
-    "DAL",
-    "VTI"
+    "DAL"
   ],
   "watchlistDropPct": 5,
   "index": "^GSPC",

@@ -5,7 +5,7 @@
       "above": 597
     },
     "GOOGL": {
-      "below": 297,
+      "below": 311.5,
       "above": 426
     },
     "AMZN": {
@@ -13,19 +13,19 @@
       "above": 298.5
     },
     "NVDA": {
-      "below": 187.5,
-      "above": 252.5
+      "below": 195,
+      "above": 258.5
     },
     "META": {
       "below": 594,
-      "above": 796
+      "above": 802
     },
     "ORCL": {
-      "below": 127.5,
-      "above": 181
+      "below": 133,
+      "above": 188.5
     },
     "VTI": {
-      "below": 345,
+      "below": 344,
       "above": 448
     }
   },

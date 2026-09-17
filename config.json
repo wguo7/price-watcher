@@ -1,11 +1,11 @@
 {
   "portfolio": {
     "MSFT": {
-      "below": 445.5,
+      "below": 427,
       "above": 597
     },
     "GOOGL": {
-      "below": 311.5,
+      "below": 297,
       "above": 426
     },
     "AMZN": {
@@ -14,18 +14,18 @@
     },
     "NVDA": {
       "below": 187.5,
-      "above": 250.5
+      "above": 252.5
     },
     "META": {
-      "below": 587,
+      "below": 594,
       "above": 796
     },
     "ORCL": {
-      "below": 125,
-      "above": 184
+      "below": 127.5,
+      "above": 181
     },
     "VTI": {
-      "below": 346.5,
+      "below": 345,
       "above": 448
     }
   },
@@ -36,7 +36,6 @@
     "TSM",
     "QCOM",
     "LMT",
-    "BA",
     "JPM",
     "BRK-B",
     "DIS",

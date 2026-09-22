@@ -1,27 +1,27 @@
 {
   "portfolio": {
     "MSFT": {
-      "below": 427,
-      "above": 597
+      "below": 445,
+      "above": 647
     },
     "GOOGL": {
       "below": 311.5,
       "above": 448
     },
     "AMZN": {
-      "below": 223,
+      "below": 223.5,
       "above": 327
     },
     "NVDA": {
-      "below": 195,
+      "below": 205,
       "above": 298.5
     },
     "META": {
-      "below": 587,
-      "above": 796
+      "below": 689,
+      "above": 995
     },
     "ORCL": {
-      "below": 132,
+      "below": 133.5,
       "above": 181
     },
     "VTI": {

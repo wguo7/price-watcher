@@ -1,8 +1,8 @@
 {
   "portfolio": {
     "MSFT": {
-      "below": 445,
-      "above": 647
+      "below": 445.5,
+      "above": 597
     },
     "GOOGL": {
       "below": 311.5,
@@ -13,16 +13,16 @@
       "above": 327
     },
     "NVDA": {
-      "below": 205,
+      "below": 206,
       "above": 298.5
     },
     "META": {
-      "below": 689,
+      "below": 646,
       "above": 995
     },
     "ORCL": {
-      "below": 133.5,
-      "above": 181
+      "below": 133,
+      "above": 188.5
     },
     "VTI": {
       "below": 344,
@@ -35,6 +35,7 @@
     "AVGO",
     "TSM",
     "LMT",
+    "GE",
     "JPM",
     "BRK-B",
     "DIS",

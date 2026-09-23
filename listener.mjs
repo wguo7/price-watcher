@@ -1,5 +1,5 @@
 // Telegram chat listener: long-polls the bot for William's messages 24/7 and
-// hands them to the chat "brain" workflow in wguo7/stock-agents (private),
+// hands them (text, screenshots as Telegram file ids, and confirmation-button taps) to the chat "brain" workflow in wguo7/stock-agents (private),
 // which runs Claude and replies. Runs in self-restarting ~5h shifts on free
 // public-repo minutes. Deliberately logs message COUNTS only, never content.
 const TG_TOKEN = process.env.TG_TOKEN;
@@ -85,14 +85,43 @@ async function maybeRetryPending() {
   } catch { /* transient — try again next cycle */ }
 }
 
-const collect = (updates) =>
-  updates
-    .filter((u) => u.message && String(u.message.chat?.id) === String(TG_CHAT))
-    .map((u) => ({
-      text: u.message.text || u.message.caption || '[non-text message]',
-      date: u.message.date,
-      message_id: u.message.message_id,
-    }));
+// William's messages, screenshots and button taps (nobody else's). Screenshots/PDFs travel as
+// Telegram file ids (the brain downloads them; nothing is stored here). A tap on a confirmation
+// button (stock-agents tools/send.mjs --confirm) arrives as callback data "c|<kind>|<arg>".
+const fromWilliam = (chatId) => String(chatId) === String(TG_CHAT);
+function toMessage(u) {
+  const m = u.message;
+  if (m && fromWilliam(m.chat?.id)) {
+    const photos = [];
+    if (m.photo?.length) photos.push(m.photo[m.photo.length - 1].file_id); // largest size
+    if (m.document && /^(image\/|application\/pdf)/.test(m.document.mime_type || '')) photos.push(m.document.file_id);
+    return {
+      text: m.text || m.caption || (photos.length ? '[screenshot]' : '[non-text message]'),
+      date: m.date,
+      message_id: m.message_id,
+      ...(photos.length ? { photos } : {}),
+    };
+  }
+  const q = u.callback_query;
+  if (q && fromWilliam(q.message?.chat?.id)) {
+    return { text: `[button] ${q.data}`, date: Math.floor(Date.now() / 1000), message_id: q.message?.message_id, callback: q.data, _query: q };
+  }
+  return null;
+}
+const collect = (updates) => updates.map(toMessage).filter(Boolean);
+
+// acknowledge taps at once (stops the spinner) and remove the tapped button so it cannot be
+// pressed twice; the brain sends the confirmation a few seconds later
+async function acknowledgeTaps(msgs) {
+  for (const m of msgs.filter((x) => x._query)) {
+    const q = m._query;
+    await tg('answerCallbackQuery', { callback_query_id: q.id, text: 'Recording…' });
+    const rows = (q.message?.reply_markup?.inline_keyboard || []).map((row) => row.filter((b) => b.callback_data !== q.data)).filter((row) => row.length);
+    await tg('editMessageReplyMarkup', { chat_id: TG_CHAT, message_id: q.message?.message_id, reply_markup: { inline_keyboard: rows } });
+    delete m._query;
+  }
+  return msgs;
+}
 
 async function main() {
   if (!TG_TOKEN || !TG_CHAT) { console.log('TG_TOKEN/TG_CHAT secrets missing'); process.exit(1); }
@@ -101,13 +130,15 @@ async function main() {
     return;
   }
   await tg('deleteWebhook', {});
+  // explicit, because Telegram keeps the last allowed_updates it was given: messages + button taps
+  const ALLOWED = ['message', 'callback_query'];
   let offset = 0;
   let conflicts = 0;
   const end = Date.now() + SHIFT_MS;
 
   while (Date.now() < end) {
     await maybeRetryPending();
-    const r = await tg('getUpdates', { offset, timeout: 50 });
+    const r = await tg('getUpdates', { offset, timeout: 50, allowed_updates: ALLOWED });
     if (r.status === 409) {
       // another getUpdates consumer is active (overlapping listener run)
       conflicts++;
@@ -124,23 +155,26 @@ async function main() {
     const updates = r.body.result || [];
     if (!updates.length) continue;
     offset = updates[updates.length - 1].update_id + 1;
-    let msgs = collect(updates);
+    let msgs = await acknowledgeTaps(collect(updates));
     if (!msgs.length) continue;
 
-    // instant acknowledgment: 👍 the message, then show typing
-    await tg('setMessageReaction', {
-      chat_id: TG_CHAT,
-      message_id: msgs[msgs.length - 1].message_id,
-      reaction: [{ type: 'emoji', emoji: '👍' }],
-    });
+    // instant acknowledgment: 👍 William's last typed message (taps were answered above), then typing
+    const typed = msgs.filter((m) => !m.callback);
+    if (typed.length) {
+      await tg('setMessageReaction', {
+        chat_id: TG_CHAT,
+        message_id: typed[typed.length - 1].message_id,
+        reaction: [{ type: 'emoji', emoji: '👍' }],
+      });
+    }
     await tg('sendChatAction', { chat_id: TG_CHAT, action: 'typing' });
 
-    // brief drain so rapid follow-up texts land in the same exchange
-    await sleep(1500);
-    const r2 = await tg('getUpdates', { offset, timeout: 0 });
+    // brief drain so rapid follow-up texts (and the rest of a multi-screenshot album) land in the same exchange
+    await sleep(typed.some((m) => m.photos) ? 4000 : 1500);
+    const r2 = await tg('getUpdates', { offset, timeout: 0, allowed_updates: ALLOWED });
     if (r2.body?.ok && r2.body.result?.length) {
       offset = r2.body.result[r2.body.result.length - 1].update_id + 1;
-      msgs = msgs.concat(collect(r2.body.result));
+      msgs = msgs.concat(await acknowledgeTaps(collect(r2.body.result)));
     }
 
     // serialize exchanges: wait (max 10 min) for the previous brain run to finish

@@ -33,14 +33,17 @@ jobs:
             const fs = require("fs");
             const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
             const lv = JSON.parse(process.env.LEVELS);
-            let n = 0;
+            // the input is the complete set (every current holding): replace the map, so a
+            // position sold since stops firing BUY/TRIM/BIG MOVE alerts
+            const next = {};
             for (const [t, v] of Object.entries(lv)) {
-              if (Number.isFinite(v?.below) && Number.isFinite(v?.above) && v.below < v.above) {
-                cfg.portfolio[t] = { below: v.below, above: v.above };
-                n++;
-              }
+              if (Number.isFinite(v?.below) && Number.isFinite(v?.above) && v.below < v.above) next[t] = { below: v.below, above: v.above };
             }
+            const n = Object.keys(next).length;
             if (!n) { console.error("no valid ticker levels in input"); process.exit(1); }
+            const dropped = Object.keys(cfg.portfolio || {}).filter((t) => !next[t]);
+            if (dropped.length) console.log(`no longer watched (not in the input): ${dropped.join(" ")}`);
+            cfg.portfolio = next;
             let w = null;
             try { w = process.env.WATCHLIST ? JSON.parse(process.env.WATCHLIST) : null; }
             catch { console.error("watchlist input is not JSON — keeping the current watchlist"); }
@@ -55,4 +58,9 @@ jobs:
           git config user.name "levels-bot"
           git config user.email "levels-bot@users.noreply.github.com"
           git add config.json
-          git diff --cached --quiet || { git commit -m "Daily AI levels $(date -u +%F)"; for i in 1 2 3; do git push && break; git pull --rebase; done; }
+          git diff --cached --quiet && exit 0
+          git commit -m "Daily AI levels $(date -u +%F)"
+          # the watcher shifts commit state/alerts.json concurrently: rebase and retry, and FAIL
+          # the run if it never lands (the old loop ended on the pull, so it went green anyway)
+          for i in 1 2 3 4; do git push && exit 0; git pull --rebase || true; sleep $((i * 3)); done
+          echo "push failed after 4 tries"; exit 1

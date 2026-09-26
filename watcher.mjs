@@ -99,17 +99,21 @@ export function shouldFire(prev, move) {
   if (move == null || prev.move == null) return false;
   return Math.sign(move) === Math.sign(prev.move) && Math.abs(move) >= Math.abs(prev.move) + REFIRE_STEP;
 }
-const local = {}; // fallback when the shared file can't be read
-async function alert(key, text, move = null) {
+const local = {}; // what THIS shift has sent (also the fallback when the shared file can't be read)
+export async function alert(key, text, move = null) {
+  let rec = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     const { state, sha } = await loadState();
     const prev = state.alerts[key] || local[key];
     if (!shouldFire(prev, move)) return;
-    state.alerts[key] = { move, at: chicagoNow() };
-    local[key] = state.alerts[key];
+    rec = state.alerts[key] = { move, at: chicagoNow() };
     if (sha === undefined || (await saveState(state, sha))) break; // saved (or no shared state): send
-    if (attempt === 2) break; // could not save after retries: send anyway rather than stay silent
+    // a failed save (409: the other shift wrote first, a timeout) retries on fresh state; after the
+    // last try it sends anyway rather than stay silent
   }
+  // remember it only now that it is going out: recording it before the save succeeded made the
+  // retry see its own unsent record and return, which dropped the alert and muted the rule all day
+  local[key] = rec;
   fired.add(key);
   console.log(`ALERT ${key}: ${text.replace(/\n/g, " | ")}`);
   try {

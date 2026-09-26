@@ -186,7 +186,10 @@ async function main() {
     else await alert("⚠️ Chat bridge couldn't hand your message to the agent (dispatch failed) — it was NOT answered. Check that XREPO_PAT has access to stock-agents.");
   }
 
-  // shift over — restart self so coverage continues
+  // shift over. Telegram only drops updates once a later getUpdates asks for a higher offset, so
+  // confirm the last batch now — else the next shift (offset 0) gets it again and re-dispatches it
+  if (offset) await tg('getUpdates', { offset, timeout: 0, allowed_updates: ALLOWED });
+  // restart self so coverage continues
   const chained = await dispatch(process.env.GITHUB_REPOSITORY, 'chat-listener.yml', REF, null, GH_TOKEN);
   if (!chained) await alert('⚠️ Chat listener could not restart itself — start the chat-listener workflow manually in price-watcher → Actions.');
 }

@@ -1,9 +1,4 @@
 {
  "date": "2026-09-26",
- "alerts": {
-  "TEST-daymove": {
-   "move": -4.1,
-   "at": "test"
-  }
- }
+ "alerts": {}
 }
